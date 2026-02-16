@@ -1,0 +1,5 @@
+{
+  "name": "Math & Physics Solver to LaTeX",
+  "description": "An AI-powered application that solves homework problems from images and generates professional LaTeX code matching specific educational formatting styles.",
+  "requestFramePermissions": []
+}
