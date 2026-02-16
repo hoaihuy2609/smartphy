@@ -23,37 +23,70 @@ Your task:
 The response MUST only be the raw LaTeX code block starting with \\documentclass and ending with \\end{document}. Do not include any conversational filler text.`;
 
 export const solveProblemsFromImages = async (images: { base64: string, mimeType: string }[]): Promise<string> => {
-  // Always use process.env.API_KEY directly as per SDK guidelines
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const imageParts = images.map(img => ({
-    inlineData: {
-      mimeType: img.mimeType,
-      data: img.base64,
-    },
-  }));
-
-  const textPart = {
-    text: `Please solve the ${images.length} problem(s) shown in the images and provide the full LaTeX code for all of them, starting from Câu 1.`
-  };
-
   try {
-    // Upgrading to gemini-3-pro-preview for complex reasoning and STEM problem solving
-    const response: GenerateContentResponse = await ai.models.generateContent({
-      model: 'gemini-3-pro-preview',
-      contents: { parts: [...imageParts, textPart] },
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.2,
-      },
-    });
+    // Check if we are in production mode (running on Vercel)
+    const isProduction = import.meta.env.PROD;
 
-    // Directly access the .text property from GenerateContentResponse
-    const text = response.text ?? '';
-    // Clean up code blocks if present
-    return text.replace(/```latex/g, '').replace(/```/g, '').trim();
+    if (isProduction) {
+      // --- PRODUCTION MODE: USE SECURE API PROXY ---
+      console.log("Running in Production Mode: Using Secure API Proxy");
+
+      const response = await fetch('/api/solve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ images }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.result;
+
+    } else {
+      // --- DEVELOPMENT MODE: USE DIRECT SDK call ---
+      // This requires the API key to be available locally (in .env)
+      console.log("Running in Dev Mode: Using Direct SDK");
+
+      const apiKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        throw new Error("Local API Key missing defined. Please check .env file.");
+      }
+
+      // Dynamic import to avoid bundling issues in some environments, though standard import is fine here
+      // We use the same logic as the server
+      const ai = new GoogleGenAI({ apiKey });
+
+      const imageParts = images.map(img => ({
+        inlineData: {
+          mimeType: img.mimeType,
+          data: img.base64,
+        },
+      }));
+
+      const textPart = {
+        text: `Please solve the ${images.length} problem(s) shown in the images and provide the full LaTeX code for all of them, starting from Câu 1.`
+      };
+
+      const response: GenerateContentResponse = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: { parts: [...imageParts, textPart] },
+        config: {
+          systemInstruction: SYSTEM_INSTRUCTION,
+          temperature: 0.2,
+        },
+      });
+
+      const text = response.text ?? '';
+      return text.replace(/```latex/g, '').replace(/```/g, '').trim();
+    }
+
   } catch (error) {
-    console.error("Gemini API Error:", error);
-    throw new Error("Không thể giải bài tập. Vui lòng thử lại sau.");
+    console.error("Solver Error:", error);
+    throw new Error(error instanceof Error ? error.message : "Không thể giải bài tập. Vui lòng thử lại sau.");
   }
 };
