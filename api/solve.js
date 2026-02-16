@@ -45,12 +45,12 @@ export default async function handler(req, res) {
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-        console.error("Server API Key missing");
-        return res.status(500).json({ error: 'Configuration Error: API Key missing on server.' });
+      console.error("Server API Key missing");
+      return res.status(500).json({ error: 'Configuration Error: API Key missing on server.' });
     }
 
     const ai = new GoogleGenAI({ apiKey });
-    
+
     // Reconstruct image parts
     const imageParts = images.map(img => ({
       inlineData: {
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
       },
     });
 
-    const text = response.text() ?? '';
+    const text = response.text ?? '';
     const cleanText = text.replace(/```latex/g, '').replace(/```/g, '').trim();
 
     return res.status(200).json({ result: cleanText });
